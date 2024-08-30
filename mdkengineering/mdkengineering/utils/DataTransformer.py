@@ -23,6 +23,8 @@ class HtmlTableTransformer:
         
     ## Expect the table to be in the format 
     ## <table> ... </table> --> no further processing is needed
+    ## TODO
+    ## Pipeline needed for preserving content inside cells
     def parse_table(self):
         rows = []
         row_spans = {}

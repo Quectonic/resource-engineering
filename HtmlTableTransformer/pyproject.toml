@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "HtmlTableTransformer"
+version = "0.0.1"
+authors = [
+  { name="Wylliam", email="wycheng@quectonic.com" },
+]
+description = "HtmlTableTransformer is a library to parse tables of different schemas under html and convert them into machine comprehensible format for LLMs ingestions or jupyter notebook data implementations."
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]

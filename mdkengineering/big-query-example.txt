@@ -1,0 +1,88 @@
+-- CREATE OR REPLACE MODEL `quectonic_experiment_1_062324.embedding_model`
+--   REMOTE WITH CONNECTION `us.quectonic_experiment_1_connect`
+--   OPTIONS (ENDPOINT = 'textembedding-gecko@003');
+
+
+
+
+-- CREATE OR REPLACE TABLE `quectonic_experiment_1_062324.embeddings` AS
+-- SELECT * FROM ML.GENERATE_EMBEDDING(
+--   MODEL `quectonic_experiment_1_062324.embedding_model`,
+--   (
+--     SELECT *, content AS info
+--     FROM `quectonic.quectonic_experiment_1_062324.test_table_1`
+--     WHERE LENGTH(content) > 0 
+--   )
+-- )
+-- WHERE LENGTH(ml_generate_embedding_status) = 0;
+
+
+
+
+
+-- CREATE OR REPLACE VECTOR INDEX my_index
+-- ON `quectonic_experiment_1_062324.embeddings`(ml_generate_embedding_result)
+-- OPTIONS(index_type = 'IVF',
+--   distance_type = 'COSINE',
+--   ivf_options = '{"num_lists":500}')
+
+
+
+
+
+-- SELECT table_name, index_name, index_status,
+-- coverage_percentage, last_refresh_time, disable_reason
+-- FROM `quectonic.quectonic_experiment_1_062324.INFORMATION_SCHEMA.VECTOR_INDEXES`
+
+
+
+
+
+
+
+-- SELECT query.query, base.id, base.content
+-- FROM VECTOR_SEARCH(
+--   TABLE `quectonic_experiment_1_062324.embeddings`, 'ml_generate_embedding_result',
+--   (
+--   SELECT ml_generate_embedding_result, content AS query
+--   FROM ML.GENERATE_EMBEDDING(
+--   MODEL `quectonic_experiment_1_062324.embedding_model`,
+--   (SELECT 'Chlamydia' AS content))
+--   ),
+--   top_k => 5, options => '{"fraction_lists_to_search": 0.01}')
+
+
+
+
+
+
+-- CREATE OR REPLACE MODEL `quectonic_experiment_1_062324.text_model`
+--   REMOTE WITH CONNECTION `us.quectonic_experiment_1_connect`
+--   OPTIONS (ENDPOINT = 'gemini-1.5-pro');
+
+
+
+
+
+SELECT ml_generate_text_llm_result AS generated, prompt
+FROM ML.GENERATE_TEXT(
+  MODEL `quectonic_experiment_1_062324.text_model`,
+  (
+    SELECT CONCAT(
+      'Propose some temporary relief recommendation based on the context below:',
+      STRING_AGG(
+        FORMAT("Article title: %s, Article content: %s", base.id, base.content),
+        ',\n')
+      ) AS prompt,
+    FROM VECTOR_SEARCH(
+      TABLE `quectonic_experiment_1_062324.embeddings`, 'ml_generate_embedding_result',
+      (
+        SELECT ml_generate_embedding_result, content AS query
+        FROM ML.GENERATE_EMBEDDING(
+          MODEL `quectonic_experiment_1_062324.embedding_model`,
+         (SELECT 'Extreme Headache At the back of the head.' AS content)
+        )
+      ),
+    top_k => 5, options => '{"fraction_lists_to_search": 0.01}')
+  ),
+  STRUCT(600 AS max_output_tokens, TRUE AS flatten_json_output));

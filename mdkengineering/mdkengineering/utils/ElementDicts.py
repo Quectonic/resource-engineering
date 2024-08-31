@@ -367,9 +367,14 @@ class MixinWithContentAttr(ABC):
     a list attribute of class, acting as an inheritance template
     """
     
+    def __init__(self, content: list[T] = None):
+        if content is None:
+            content = []
+        self.content = content
+    
     @abstractmethod
-    def set_content(self):
-        pass
+    def set_content(self, content: list[T] = None):
+        self.content = content
     
 class MixinWithDescriptionAttr(ABC):
     
@@ -378,9 +383,14 @@ class MixinWithDescriptionAttr(ABC):
     a list attribute of class, acting as an inheritance template
     """
     
+    def __init__(self, description: list[T] = None):
+        if description is None:
+            description = []
+        self.description = description
+    
     @abstractmethod
-    def set_description(self):
-        pass
+    def set_description(self, description: list[T] = []):
+        self.description = description
 
 class MixinWithChildrenAttr(ABC):
     
@@ -389,9 +399,14 @@ class MixinWithChildrenAttr(ABC):
     a list attribute of class, acting as an inheritance template
     """
     
+    def __init__(self, children: list[T] = None):
+        if children is None:
+            children = []
+        self.children = children
+    
     @abstractmethod
-    def set_children(self):
-        pass
+    def set_children(self, children: list[T] = []):
+        self.children = children
 
 
 class ElementDict(ABC):
@@ -459,8 +474,16 @@ class ElementDict(ABC):
     
     def incrementLevel(self, base_support_level):
         """Increment the level number based on parent ElementDict design."""
-        ## TODO: increment level <int>
-        pass
+        self.level += base_support_level
+        if hasattr(self, 'children') and self.children:
+            for child in self.children:
+                child.incrementLevel(self.level)
+        if hasattr(self, 'description') and self.description:
+            for descriptionChild in self.description:
+                descriptionChild.incrementLevel(self.level)
+        if hasattr(self, 'content') and self.content:
+            for contentChild in self.content: 
+                contentChild.incrementLevel(self.level)
     
     def prettify(self):
         
@@ -687,14 +710,14 @@ class ParagraphDict(ElementDict, MixinWithContentAttr):
         return {
                 "type": self.type,
                 "level": self.level,
-                "content": self.content
+                "content": [item.to_dict() for item in self.content]
             }
         
     def __str__(self) -> str:
         return json.dumps(self.to_dict(), indent=4)
     
     def set_content(self):
-        return super().set_content()
+        self.content
     
     
 class LinkDict(ElementDict, MixinWithContentAttr):
@@ -707,7 +730,7 @@ class LinkDict(ElementDict, MixinWithContentAttr):
         return {
                 "type": self.type,
                 "level": self.level,
-                "content": self.content
+                "content": [item.to_dict() for item in self.content]
             }
         
     def __str__(self) -> str:
@@ -744,7 +767,7 @@ class MediaDict(ElementDict, MixinWithDescriptionAttr):
         return {
                 "type": self.type,
                 "level": self.level,
-                "description": self.description,
+                "description": [item.to_dict() for item in self.description],
                 "url": self.url
             }
         
@@ -767,8 +790,8 @@ class TableDict(ElementDict, MixinWithDescriptionAttr, MixinWithContentAttr):
         return {
                 "type": self.type,
                 "level": self.level,
-                "description": self.description,
-                "content": self.content
+                "description": [item.to_dict() for item in self.description],
+                "content": self._to_dict_recursion(self.content)
             }
         
     def __str__(self) -> str:
@@ -779,6 +802,12 @@ class TableDict(ElementDict, MixinWithDescriptionAttr, MixinWithContentAttr):
     
     def set_content(self):
         return super().set_content()
+    
+    def _to_dict_recursion(self, content):
+        """Recursively process the content to handle nested structures."""
+        if isinstance(content, list):
+            return [self._to_dict_recursion(item) if isinstance(item, list) else item.to_dict() for item in content]
+        return content
     
     
     
@@ -792,8 +821,8 @@ class HeadingDict(ElementDict, MixinWithChildrenAttr, MixinWithContentAttr):
         return {
                 "type": self.type,
                 "level": self.level,
-                "description": self.description,
-                "url": self.url
+                "children": [item.to_dict() for item in self.children],
+                "content": [item.to_dict() for item in self.content]
             }
         
     def __str__(self) -> str:

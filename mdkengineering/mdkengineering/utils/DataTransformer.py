@@ -1,39 +1,63 @@
 from bs4 import BeautifulSoup
 import pandas as pd
+from pandas import DataFrame
+from abc import ABC, abstractmethod
 
-class HtmlTableTransformer:
+class Transformer(ABC):
+    @abstractmethod
+    def parse(self) -> list:
+        pass
+    
+    @abstractmethod
+    def toText(self) -> str:
+        pass
+    
+    @abstractmethod
+    def toDataFrame(self) -> DataFrame:
+        pass
+    
+
+class HtmlTableTransformer(Transformer):
     
     """
         Table Processing Class
          -  Converting html '\<table\> ... \</table\>' into:
              - Text // string format
              - pandas dataframe
+             
+        2 Ways of instantiation:
+         -  Instantiate by table_list (processed table html, formatted as list object)
+             - Account for subcontent inside cells (e.g. links, medias) using ElementDict
+         -  Instantiate by table_html (raw html)
+             - Purely concatenated text inside cells
     """
     
     
-    def __init__(self, table_html) -> None:
-        try:
-            self.table_html = BeautifulSoup(table_html, 'lxml')
-        except:
-            self.table_html = BeautifulSoup(table_html, 'html.parser')
-            print(f'lxml unusable, switching to html.parser')
-        self.rows = self.parse_table()
+    def __init__(self, *, table_list = None, table_html = None) -> None:
+        if table_html:
+            try:
+                self.table_html = BeautifulSoup(table_html, 'lxml')
+            except:
+                self.table_html = BeautifulSoup(table_html, 'html.parser')
+                print(f'lxml unusable, switching to html.parser')
+            
+            self.table_list = self.parse_table()
+        elif table_list:
+            self.table_list = table_list
+        else:
+            raise ValueError('No table resource was referred to.')
         self.text = self.toText()
         # <html><body><a></a></body></html>
         
-    ## Expect the table to be in the format 
-    ## <table> ... </table> --> no further processing is needed
-    ## TODO
-    ## Pipeline needed for preserving content inside cells
-    def parse_table(self):
-        rows = []
+    def parse(self):
+        table_list = []
         row_spans = {}
         for row_idx, row in enumerate(self.table_html.find_all('tr')):
             cells = []
             col_idx = 0
 
             for cell in row.find_all(['td', 'th']):
-                # Handle any ongoing rowspans from previous rows
+                # Handle any ongoing rowspans from previous table_list
                 while col_idx in row_spans and row_spans[col_idx]['count'] > 0:
                     cells.append(row_spans[col_idx]['value'])
                     row_spans[col_idx]['count'] -= 1
@@ -51,7 +75,7 @@ class HtmlTableTransformer:
                     cells.append(cell_text)
                     col_idx += 1
 
-                # If the cell has a rowspan, mark it to be carried over to the subsequent rows
+                # If the cell has a rowspan, mark it to be carried over to the subsequent table_list
                 if rowspan > 1:
                     for i in range(colspan):
                         row_spans[col_idx - colspan + i] = {'value': cell_text, 'count': rowspan - 1}
@@ -65,27 +89,61 @@ class HtmlTableTransformer:
                 col_idx += 1
 
             # Append the parsed row to the final result
-            rows.append(cells)
+            table_list.append(cells)
 
-        return rows
+        return table_list
 
     def toText(self):
         processed_table = []
-        for row in self.rows:
-            processed_row = f'|| {" | ".join(row)} ||'
+        for row in self.table_list:
+            row_list = []
+            for cell in row:
+                row_list.append(HtmlTableTransformer.concatenate_cell_content(cell))
+            print(f'row list: {row_list}')
+            processed_row = f'|| {" | ".join(row_list)} ||'
             processed_table.append(processed_row)
         processed_table = '\n'.join(processed_table)
         return processed_table
     
-    def toDataframe(self):
-        header_row = None
-        for row in self.rows:
-            if any(row):
-                header_row = row
-                break
+    @staticmethod
+    def concatenate_cell_content(content):
+        """
+        Recursively flatten item inside a cell
         
-        df = pd.DataFrame(self.rows, columns=header_row)
-        return df
+        Parameter(s)
+        ------------
+        content: list || nested list
+             -  content should be a cell list
+        Return(s)
+        ------------
+        str: concatenated string from the list of content inside
+             cell
+        """
+        concatenated_cell_content = ""
+        
+        
+        for subcontent in content:
+            if isinstance(subcontent, list):
+                concatenated_cell_content += HtmlTableTransformer.concatenate_cell_content(subcontent)
+            else:
+                concatenated_cell_content += subcontent
+                
+        return concatenated_cell_content
+    
+    def toDataFrame(self):
+        if self.table_html:
+            header_row = None
+            for row in self.table_list:
+                if any(row):
+                    header_row = row
+                    break
+            
+            df = pd.DataFrame(self.table_list, columns=header_row)
+            return df
+        else:
+            ## TODO
+            ## a different algorithm that concatenates the list of content inside each cell
+            return
     
     def encodeText(self):
         
@@ -94,7 +152,8 @@ class HtmlTableTransformer:
         textTable = self.toText()
         return f"<table> {textTable} <table>"
     
-class HTMLListTransformer:
+    
+class HTMLListTransformer(Transformer):
     """
         List Processing Class
          -  Converting html '\<ul\> ... \</ul\>' into:
@@ -112,7 +171,7 @@ class HTMLListTransformer:
         
     ## Expect the table to be in the format 
     ## <table> ... </table> --> no further processing is needed
-    def parse_list(self):
+    def parse(self):
         bulletpoints = self.ul_html.find_all('li')
         items = [item.get_text() for item in bulletpoints]
         
@@ -123,7 +182,7 @@ class HTMLListTransformer:
 
     def toText(self):
         processed_table = []
-        for row in self.rows:
+        for row in self.table_list:
             processed_row = f'|| {" | ".join(row)} ||'
             processed_table.append(processed_row)
         processed_table = '\n'.join(processed_table)

@@ -364,7 +364,7 @@ class MixinWithContentAttr(ABC):
     
     """
     For ElementDict subclasses that contain 'content' as 
-    an attribute of class, acting as an inheritance template
+    a list attribute of class, acting as an inheritance template
     """
     
     @abstractmethod
@@ -375,7 +375,7 @@ class MixinWithDescriptionAttr(ABC):
     
     """
     For ElementDict subclasses that contain 'description' as 
-    an attribute of class, acting as an inheritance template
+    a list attribute of class, acting as an inheritance template
     """
     
     @abstractmethod
@@ -386,7 +386,7 @@ class MixinWithChildrenAttr(ABC):
     
     """
     For ElementDict subclasses that contain 'children' as 
-    an attribute of class, acting as an inheritance template
+    a list attribute of class, acting as an inheritance template
     """
     
     @abstractmethod
@@ -574,19 +574,20 @@ class ElementDict(ABC):
 
         elif self.type == 'table':
             # Extract table content and description
-            yield "\n"
+            yield "\n\n"
             yield "<table>"
             
             # Extract table content
             if self.content and len(self.content) > 0:
                 yield extract_table(self.content)  
-            yield '\n'
             # Add description back if applicable
             if hasattr(self, 'description') and self.description:
+                yield '\n'
                 yield "Description of table: "
                 for subdescription in self.description:
                     yield list(subdescription.extract_content())
-                yield "\n"
+            
+            yield "\n\n"
 
         elif self.type == 'media':
             # Simply extract the link to the media and description
@@ -603,6 +604,7 @@ class ElementDict(ABC):
                 for subcontent in self.content:
                     yield list(subcontent.extract_content())
                     
+            yield "\n\n"
             
             if hasattr(self, 'children') and self.children:
                 for child in self.children:
@@ -676,7 +678,7 @@ class ElementDict(ABC):
     
     
 
-class ParagraphDict(ElementDict):
+class ParagraphDict(ElementDict, MixinWithContentAttr):
     def __init__(self,  level: int, content: list[ElementDict] = []) -> None:
         super().__init__(level=level, type='paragraph')
         self.content = content
@@ -691,11 +693,11 @@ class ParagraphDict(ElementDict):
     def __str__(self) -> str:
         return json.dumps(self.to_dict(), indent=4)
     
-    def set_content(self, content: ElementDict) -> None:
-        self.content = content
+    def set_content(self):
+        return super().set_content()
     
     
-class LinkDict(ElementDict):
+class LinkDict(ElementDict, MixinWithContentAttr):
     def __init__(self, level: int, url: str = "", content: list[ElementDict] = []) -> None:
         super().__init__(level=level, type='link')
         self.url = url
@@ -710,6 +712,9 @@ class LinkDict(ElementDict):
         
     def __str__(self) -> str:
         return json.dumps(self.to_dict(), indent=4)
+    
+    def set_content(self):
+        return super().set_content()
         
 class TextDict(ElementDict):
     def __init__(self, level: int, content: str = "") -> None:
@@ -729,7 +734,7 @@ class TextDict(ElementDict):
     
     
     
-class MediaDict(ElementDict):
+class MediaDict(ElementDict, MixinWithDescriptionAttr):
     def __init__(self,  level: int, description: list[ElementDict] = [], url: str = "") -> None:
         super().__init__(level=level, type='media')
         self.description = description
@@ -746,10 +751,13 @@ class MediaDict(ElementDict):
     def __str__(self) -> str:
         return json.dumps(self.to_dict(), indent=4)
     
+    def set_description(self):
+        return super().set_description()
     
     
     
-class TableDict(ElementDict):
+    
+class TableDict(ElementDict, MixinWithDescriptionAttr, MixinWithContentAttr):
     def __init__(self,  level: int, description: list[ElementDict] = [], content: list[ElementDict] = []) -> None:
         super().__init__(level=level, type='table')
         self.description = description
@@ -766,10 +774,15 @@ class TableDict(ElementDict):
     def __str__(self) -> str:
         return json.dumps(self.to_dict(), indent=4)
     
+    def set_description(self):
+        return super().set_description()
+    
+    def set_content(self):
+        return super().set_content()
     
     
     
-class HeadingDict(ElementDict):
+class HeadingDict(ElementDict, MixinWithChildrenAttr, MixinWithContentAttr):
     def __init__(self,  level: int, children: list[ElementDict] = [], content: list[ElementDict] = []) -> None:
         super().__init__(level=level, type='heading')
         self.children = children
@@ -786,5 +799,10 @@ class HeadingDict(ElementDict):
     def __str__(self) -> str:
         return json.dumps(self.to_dict(), indent=4)
     
+    def set_content(self):
+        return super().set_content()
+    
+    def set_children(self):
+        return super().set_children()
     
     

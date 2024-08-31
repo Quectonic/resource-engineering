@@ -99,7 +99,6 @@ class HtmlTableTransformer(Transformer):
             row_list = []
             for cell in row:
                 row_list.append(HtmlTableTransformer.concatenate_cell_content(cell))
-            print(f'row list: {row_list}')
             processed_row = f'|| {" | ".join(row_list)} ||'
             processed_table.append(processed_row)
         processed_table = '\n'.join(processed_table)

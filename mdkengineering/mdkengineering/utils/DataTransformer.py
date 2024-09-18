@@ -41,23 +41,58 @@ class HtmlTableTransformer(Transformer):
                 self.table_html = BeautifulSoup(table_html, 'html.parser')
                 print(f'lxml unusable, switching to html.parser')
             
-            self.table_list = self.parse_table()
+            self.table_list = self.parse()
+            self.table_ED_list = self.parse_with_elementdict()
         elif table_list:
             self.table_list = table_list
+            self.table_ED_list = None
         else:
             raise ValueError('No table resource was referred to.')
         self.text = self.toText()
         # <html><body><a></a></body></html>
         
     def parse(self):
-        table_list = []
-        row_spans = {}
-        for row_idx, row in enumerate(self.table_html.find_all('tr')):
-            cells = []
-            col_idx = 0
+        
+        """
+        Extract everything in textual format
+        """
+        
+        try:
+            table_list = []
+            row_spans = {}
+            for row_idx, row in enumerate(self.table_html.find_all('tr')):
+                cells = []
+                col_idx = 0
 
-            for cell in row.find_all(['td', 'th']):
-                # Handle any ongoing rowspans from previous table_list
+                for cell in row.find_all(['td', 'th']):
+                    # Handle any ongoing rowspans from previous table_list
+                    ## checking if the column requires prior stacking
+                    ## checking if the row requires left side stacking
+                    while col_idx in row_spans and row_spans[col_idx]['count'] > 0:
+                        cells.append(row_spans[col_idx]['value'])
+                        row_spans[col_idx]['count'] -= 1
+                        if row_spans[col_idx]['count'] == 0:
+                            del row_spans[col_idx]
+                        col_idx += 1
+
+
+                    # Extract text
+                    cell_text = cell.get_text().replace('\n', '')
+                    # Handle rowspan & colspan
+                    rowspan = int(cell.get('rowspan', 1))
+                    colspan = int(cell.get('colspan', 1))
+
+                    # Place the current cell's value in the appropriate column(s)
+                    for _ in range(colspan):
+                        cells.append(cell_text)
+                        col_idx += 1
+
+                    # If the cell has a rowspan, mark it to be carried over to the subsequent table_list
+                    if rowspan > 1:
+                        for i in range(colspan):
+                            row_spans[col_idx - colspan + i] = {'value': cell_text, 'count': rowspan - 1}
+
+                # Handle any remaining rowspans after processing all cells in this row
                 while col_idx in row_spans and row_spans[col_idx]['count'] > 0:
                     cells.append(row_spans[col_idx]['value'])
                     row_spans[col_idx]['count'] -= 1
@@ -65,33 +100,73 @@ class HtmlTableTransformer(Transformer):
                         del row_spans[col_idx]
                     col_idx += 1
 
-                # Extract text and handle rowspan and colspan
-                cell_text = cell.get_text().replace('\n', '')
-                rowspan = int(cell.get('rowspan', 1))
-                colspan = int(cell.get('colspan', 1))
+                # Append the parsed row to the final result
+                table_list.append(cells)
 
-                # Place the current cell's value in the appropriate column(s)
-                for _ in range(colspan):
-                    cells.append(cell_text)
-                    col_idx += 1
-
-                # If the cell has a rowspan, mark it to be carried over to the subsequent table_list
-                if rowspan > 1:
-                    for i in range(colspan):
-                        row_spans[col_idx - colspan + i] = {'value': cell_text, 'count': rowspan - 1}
-
-            # Handle any remaining rowspans after processing all cells in this row
-            while col_idx in row_spans and row_spans[col_idx]['count'] > 0:
-                cells.append(row_spans[col_idx]['value'])
-                row_spans[col_idx]['count'] -= 1
-                if row_spans[col_idx]['count'] == 0:
-                    del row_spans[col_idx]
-                col_idx += 1
-
-            # Append the parsed row to the final result
-            table_list.append(cells)
-
-        return table_list
+            return table_list
+        except Exception as e:
+            raise ValueError(f'table parsing error: {e}')
+    
+    def parse_with_elementdict(self):
+        
+        """
+        Extract everything in ElementDict format
+        """
+        
+        
+        from mdkengineering.utils.Parse import transform_tag_to_ElementDict
+        
+        table_list = []
+        row_spans = {}
+        try:
+            for row_idx, row in enumerate(self.table_html.find_all(('tr'))):
+                cells = []
+                col_idx = 0
+                
+                for cell in row.find_all(['th', 'td']):
+                    while col_idx in row_spans and row_spans[col_idx]['count'] > 0:
+                        
+                        ## Considering how many cells the row should skip for the next value
+                        
+                        cells.append(row_spans[col_idx]['value'])
+                        row_spans[col_idx]['count'] -= 1
+                        if row_spans[col_idx]['count'] == 0:
+                            del row_spans[col_idx]
+                        col_idx += 1
+                        
+                        
+                        cell_content = []
+                        
+                        for item in cell.contents:
+                            cell_content.append(transform_tag_to_ElementDict(item))
+                        
+                        
+                        rowspan = int(cell.get('rowspan', 1))
+                        colspan = int(cell.get('colspan', 1))
+                        
+                        
+                        for _ in range(colspan):
+                            cells.append() ## APPEND CURRENT CELL CONTENT!!!
+                        
+                        if rowspan > 1:
+                            for i in range(colspan):
+                                row_spans[col_idx - colspan + i] = {'value': cell_content, 'count': rowspan - 1}
+                                
+                    while col_idx in row_spans and row_spans[col_idx]['count'] > 0:
+                        cells.append(row_spans[col_idx]['value'])
+                        row_spans[col_idx]['count'] -= 1
+                        if row_spans[col_idx]['count'] == 0:
+                            del row_spans[col_idx]
+                        col_idx += 1
+                        
+                    table_list.append(cells)
+                
+                return table_list
+        except Exception as e:
+            raise ValueError(f'table parsing error: {e}')
+            
+                
+        
 
     def toText(self):
         processed_table = []

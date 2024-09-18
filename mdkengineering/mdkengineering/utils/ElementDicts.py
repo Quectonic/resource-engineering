@@ -39,7 +39,7 @@
             "type": "media",
             "level": <level int>,
             "description": [ ... TextDict, LinkDict, ... ], 
-            "source": <url>, #### image source
+            "url": <url>, #### image source
         }
         
     6. HeadingDict
@@ -55,6 +55,13 @@
             "type": "list",
             "level": <level int>,
             "item": [ ... [ ... TextDict ... ] ... ]
+        }
+        
+    8. PlaceholderDict
+        {
+            "type": "placeholder",
+            "level": <level int>,
+            "content": ElementDict
         }
         
     ****************************************************************************************
@@ -382,6 +389,13 @@ class MixinWithContentAttr(ABC, Generic[T]):
     def set_content(self, content: list[T] = []):
         self.content = content
         
+    @abstractmethod
+    def has_content(self):
+        return self.getContentLength() != 0    
+    
+    @abstractmethod
+    def getContentLength(self):
+        return len(self.content)    
         
 class MixinWithItemAttr(ABC, Generic[T]):
     
@@ -397,6 +411,14 @@ class MixinWithItemAttr(ABC, Generic[T]):
     @abstractmethod    
     def set_item(self, item: list[list[T]] = []):
         self.item = item
+        
+    @abstractmethod
+    def has_item(self):
+        return self.getItemLength() != 0
+    
+    @abstractmethod
+    def getItemLength(self):
+        return len(self.item)
         
 class MixinWithRowAttr(ABC, Generic[T]):
     
@@ -420,6 +442,19 @@ class MixinWithRowAttr(ABC, Generic[T]):
             return [self._to_dict_recursion(item) if isinstance(item, list) else item.to_dict() for item in content]
         return content
     
+    @abstractmethod
+    def has_row(self):
+        for row_ in self.getTableDim():
+            if (row_ != 0):
+                return True
+        return False
+        
+        
+    @abstractmethod
+    def getTableDim(self):
+        for row_ in self.row:
+            yield len(row_)
+    
 class MixinWithDescriptionAttr(ABC, Generic[T]):
     
     """
@@ -433,6 +468,14 @@ class MixinWithDescriptionAttr(ABC, Generic[T]):
     @abstractmethod
     def set_description(self, description: list[T] = []):
         self.description = description
+        
+    @abstractmethod
+    def has_description(self):
+        return self.getDescriptionLength() != 0
+    
+    @abstractmethod
+    def getDescriptionLength(self):
+        return len(self.description)
 
 class MixinWithChildrenAttr(ABC, Generic[T]):
     
@@ -447,8 +490,18 @@ class MixinWithChildrenAttr(ABC, Generic[T]):
     @abstractmethod
     def set_children(self, children: list[T] = []):
         self.children = children
+        
+    @abstractmethod
+    def has_children(self):
+        return self.getChildrenLength() != 0
+    
+    @abstractmethod
+    def getChildrenLength(self):
+        return len(self.children)
 
 
+
+## ElementDict Parent Class
 class ElementDict(ABC):
     
     """
@@ -463,7 +516,8 @@ class ElementDict(ABC):
         'table',
         'text',
         'heading',
-        'list'
+        'list',
+        'placeholder'
     ]
     
     @classmethod
@@ -486,15 +540,25 @@ class ElementDict(ABC):
                 return TableDict(level=level)
             elif type == 'heading':
                 return HeadingDict(level=level)
+            elif type == 'list':
+                return ListDict(level=level)
+            elif type == 'placeholder':
+                return PlaceholderDict()
             
         
     
     def __init__(self, level: int, type: str) -> None:
-        self.level = level
+        
+        
         if type in ElementDict.allowed_types:
             self.type = type
         else:
             raise ValueError(f"Type of element cannot be {type}")
+        
+        if self.type == 'placeholder':
+            self.level = None
+        else:
+            self.level = level
 
     @abstractmethod
     def to_dict(self) -> dict:
@@ -519,6 +583,10 @@ class ElementDict(ABC):
         if isinstance(content, list):
             return [ElementDict._to_dict_recursion(item) if isinstance(item, list) else item.to_dict() for item in content]
         return content
+    
+    @abstractmethod
+    def set_level(self, level: int):
+        self.level = level
     
     def incrementLevel(self, base_support_level):
         """Increment the level number based on parent ElementDict design."""
@@ -599,6 +667,10 @@ class ElementDict(ABC):
                 yield "<table>"
                 item_idx += 1
                 yield item_list[item_idx]
+            elif item_list[item_idx] == "<list>":
+                yield "<list>"
+                item_idx += 1
+                yield item_list[item_idx]
             elif isinstance(item_list[item_idx], str):
                 yield item_list[item_idx]
             elif isinstance(item_list[item_idx], Iterable) and not isinstance(item_list[item_idx], str):
@@ -609,7 +681,10 @@ class ElementDict(ABC):
          
     def extract_content(self) -> Iterable[str]:
         """
-        Recursively extracts values from ElementDict.
+        Recursively extracts values from ElementDict and convert them into
+        textual formats.
+        
+        ***Note: this is not for parsing tag into ElementDict.***
     
         Parameter(s)
         ----------
@@ -638,6 +713,15 @@ class ElementDict(ABC):
                     extracted_row.append(extracted_cell)
                 extracted_table.append(extracted_row)
             return extracted_table
+        
+        def extract_list(rows):
+            extracted_list = []
+            for row in rows:
+                extracted_row = []
+                for content in row:
+                    extracted_row = list(content.extract_content())
+                extracted_list.append(extracted_row)
+            return extracted_list
             
         if self.type == 'text':
             # Simply extract text
@@ -649,7 +733,7 @@ class ElementDict(ABC):
             yield "<table>"
             
             # Extract table content
-            if self.content and len(self.content) > 0:
+            if hasattr(self, 'content') and self.content and len(self.content) > 0:
                 yield extract_table(self.content)  
             # Add description back if applicable
             if hasattr(self, 'description') and self.description:
@@ -699,38 +783,54 @@ class ElementDict(ABC):
                 for subcontent in self.content:
                     yield list(subcontent.extract_content())
                     
+        elif self.type == 'list':
+            ## Extract list item
+            yield "<list>"
+            if hasattr(self, 'item') and self.item and len(self.item) > 0:
+                yield extract_list(self.content)
+                
+            pass
+        
+        elif self.type == 'placeholder':
+            
+            ## Extract nested content from the placeholder
+            if hasattr(self, 'content') and self.content:
+                for subcontent in self.content:
+                    yield list(subcontent.extract_content())
+                    
                 
     @staticmethod    
-    def from_bs_tag(tag, level: int) -> 'ElementDict':
+    def from_bs_tag_with_hierarchy(tags: list[BeautifulSoup], base_level: int) -> 'ElementDict':
         """
         Recursively process tags and sub-tags and return an ElementDict
         with hierarchical content, description, etc. 
         
         Parameter(s)
         ----------
-        tag: BeautifulSoup
+        tag: list[BeautifulSoup]
+             -  should be a list of tags
         
         Return(s)
         ----------
-        ElementDict with nested structure
+        list[ElementDict] 
+             -  each with nested structure
         
         Example(s)
         ----------
         Given an example html:
 
-            <div>
-                <h1>Hello World</h1>
-                <p>This is a <a href="example url">Hello World</a> program.</p>
-                <p>It is super fun.</p>
-                <h2>Origin of <a href="example url 2">Programming</a></h2>
-                <p>You might have to contact <a href="example url 3">Alan Turing</a> to understand:</p>
-                <ul>
-                    <li>How programming started.</li>
-                    <li>Why it is important.</li>
-                </ul>
-                <h1>Decipher</h1>
-                <p>This is related to <a href="example url 4">cryptography</a>, which I have no idea about.</p>
-            </div>
+            <h1>Hello World</h1>
+            <p>This is a <a href="example url">Hello World</a> program.</p>
+            <p>It is super fun.</p>
+            <h2>Origin of <a href="example url 2">Programming</a></h2>
+            <p>You might have to contact <a href="example url 3">Alan Turing</a> to understand:</p>
+            <ul>
+                <li>How programming started.</li>
+                <li>Why it is important.</li>
+            </ul>
+            <h1>Decipher</h1>
+            <p>This is related to <a href="example url 4">cryptography</a>, which I have no idea about.</p>
+            
            
         Return:
         
@@ -871,103 +971,117 @@ class ElementDict(ABC):
             ]
         """
         
-        ## use tag.find() to check and find if there is any child tag under it
+        ## Receive a list of bs4 object(s)
+        ## return a list of ElementDict(s)
         
-        ## HINT - Recursively parsing children tags and text contents inside a currently processed tag
-        # # Iterate over all direct children of the <p> tag
-        #     for element in p_tag.children:
-        #         if element.name is not None:
-        #             # If the element is a tag, process the tag and its content together
-        #             print(f"Tag: {element.name}, Content: {element.get_text()}")
-        #         else:
-        #             # If the element is text, process it as text
-        #             print(f"Text: {element}")
         
         ## TODO
         
-        if not tag:
+        if not tags and any(not isinstance(item, BeautifulSoup) for item in tags):
             raise ValueError(f'{ElementDict.from_bs_tag.__name__} did not receive a valid BeautifulSoup tag for processing')
         
-        content_list = []
-        description_list = []
-        children_list = []
+        ## base case: subtags[idx] does not have a tag name and contains only text
+        ## recursion case: subtags[idx] has a tag name
         
+        ## QUESTION
+        ##       -  Upon reaching heading tag, update the level value
+        ##           -  With the new level value, how do program switch to a different branch?
+        ##           -  Use the level value to find the closest sibling heading tag with the same level
+        ##                                                                              |--> h1 => level 1
+        ##                                                                                      |--> content level 1 + 1
         
-        # ***************************************************************************************************
-        # ***********                                New Logic                                    ***********
-        # ***************************************************************************************************
-        
-        content_tags = tag.contents
-        
+        nested_content_list = list()
         idx = 0
-        while idx < len(content_tags):
-            if re.match(r'h\d+', content_tags[idx]):
-                ## header tag logic
-                heading_level = int(content_tags[idx].name[1:])
-                # return HeadingDict(level=heading_level, children=, content=)
+        current_level = base_level
+        last_header_position, last_header_level = -1, -1 ## record the index of the heading tag in the 
+        while idx < len(tags):
+            current_tag = tags[idx]
+            
+            if re.match(r'h\d+', current_tag.name) and type(current_tag) is Tag:
+                current_level = int(current_tag.name[1:])
+                ## LOGIC TO COMPARE TO LAST HEADING TAG ETC.
+                
+                if last_header_position == -1:
+                    
+                    ## no prior heading tag found 
+                    support_structure = HeadingDict(
+                        level=current_level,
+                        content=[],
+                        children=[],
+                    )
+                    for tmp_support_level in range(current_level-1, 0, -1):
+                        ## assuming heading tags are outermost
+                        if support_structure is None:
+                            support_structure = PlaceholderDict(
+                                level=tmp_support_level,
+                                
+                            )
+                
+                
+                
+                
+                last_header_position, last_header_level = idx, current_level
+                    
+                    
+        ## Step 1:
+        ##       -  turn every tag in tags.contents to be ElementDict
+        
+        
+        def parse_nested_tags(tags: list[BeautifulSoup]):
+            for tag in tags:
                 pass
-            else:
-                pass
+                
+        
+        ## Step 2:
+        ##       -  sorting ElementDicts into hierarchy
+        
+        ## Step 3:
+        ##       -  standalone, unsupported heading tag get PlaceholderDict
+        
+        
+        ## Step 4:
+        ##       -  clean the empty content ElementDicts
+        ##           1. nested with other ElementDict but consist of no valuable content
+        ##           2. nested alone under header or paragraph and consist of no valuable content
+        
         
         # ***************************************************************************************************
-        # ***********                                Old Logic                                    ***********
+        # ***************************************************************************************************
+        # ***********   Content Cases:                                                            ***********
+        # ***********    -  tag has content --> recursion over the tag parameter                  ***********
+        # ***********                       --> assign list of ElementDict to the parent          ***********
+        # ***********                           tag through recursion                             ***********
+        # ***********    -  tag has children --> while loop                                       ***********
+        # ***********                        --> go through subsequent tags until reaching        ***********
+        # ***********                            the next heading tag                             ***********
+        # ***********                            |--> once reaching the next heading tag,         ***********
+        # ***********                                 compare hierarchical indicator (h<int>)     ***********
+        # ***********                                 of the next tag to the current tag of       ***********
+        # ***********                                 the loop                                    ***********
+        # ***********                                 |--> bigger  ==> go into children           ***********
+        # ***********                                 |--> equal   ==> append new item to         ***********
+        # ***********                                                  the existing list          ***********
+        # ***********                                 |--> smaller ==> ????                       ***********    
+        # ***********                                                                             ***********
+        # ***********   Type Cases:                                                               ***********
+        # ***********    -  <Figure>, <Gallery> --> Media                                         ***********
+        # ***********    -  <a> --> link                                                          ***********
+        # ***********    -  <p> --> paragraph                                                     ***********
+        # ***********    -  <h(\d+)> --> heading                                                  ***********
+        # ***********    -  <div>, <section>, <body> --> placeholder                              ***********
+        # ***********    -  <ul> --> list                                                         ***********
+        # ***********    -  no tag --> text                                                       ***********
+        # ***********    -  <table> --> table                                                     ***********
+        # ***************************************************************************************************
         # ***************************************************************************************************
         
-        if tag.name == "p":
-            
-            para_dict = ElementDict.create_ElementDict(level=level, type='paragraph')
-            
-            for item in tag.contents:
-                if isinstance(item, NavigableString): ## checking if it is a Navigable
-                    content_list.append(TextDict(level=level+1, content=item))
-                else:
-                    content_list.append(ElementDict.from_bs_tag(tag=item, level=level+1))
-            
-            para_dict.set_content(content_list) ## function to update the ElementDict content contained
-            return para_dict
-        elif tag.name == "a":
-            
-            link_dict = ElementDict.create_ElementDict(level=level, type='link')
-            
-            for item in tag.contents:
-                if isinstance(item, NavigableString): ## checking if it is a Navigable
-                    content_list.append(TextDict(level=level+1, content=item))
-                else:
-                    content_list.append(ElementDict.from_bs_tag(tag=item, level=level+1))
-            
-            link_dict.set_content(content_list)
-            pass
-        elif tag.name == "table":
-            pass
-        elif re.match(r'h\d+', tag.name):
-            
-            ## re-establish leveling according to the heading index
-            level = int(tag.name[1:])
-            heading_dict = ElementDict.create_ElementDict(level=level, type='heading')
-            
-            for item in tag.contents:
-                if isinstance(item, NavigableString): ## checking if it is a Navigable
-                    content_list.append(TextDict(level=level+1, content=item))
-                else:
-                    content_list.append(ElementDict.from_bs_tag(tag=item, level=level+1))
-            
-            
-            # for item in tag
-            
-            pass
-        elif tag.name == "figure":
-            ## Consist of <figcaption> & <img> 
-            pass
-        else:
-            ## can be text --> NOTE: Check if there is text in this element
-            pass
         
     
     
 
 class ParagraphDict(ElementDict, MixinWithContentAttr[T]):
     
-    def __init__(self,  level: int, content: list[T] = []) -> None:
+    def __init__(self,  level: int = None, content: list[T] = []) -> None:
         super().__init__(level=level, type='paragraph')
         ## NOTE
         # self.content = content
@@ -977,7 +1091,7 @@ class ParagraphDict(ElementDict, MixinWithContentAttr[T]):
         return {
                 "type": self.type,
                 "level": self.level,
-                "content": [item.to_dict() for item in self.content]
+                "content": [item.to_dict() for item in self.content if item is not None]
             }
         
     def __str__(self) -> str:
@@ -986,9 +1100,18 @@ class ParagraphDict(ElementDict, MixinWithContentAttr[T]):
     def set_content(self, content: list[T] = []):
         return super().set_content(content)
     
+    def set_level(self, level: int):
+        return super().set_level(level)
+    
+    def getContentLength(self):
+        return super().getContentLength()
+    
+    def has_content(self):
+        return super().has_content()
+    
     
 class LinkDict(ElementDict, MixinWithContentAttr[T]):
-    def __init__(self, level: int, url: str = "", content: list[T] = []) -> None:
+    def __init__(self, level: int = None, url: str = "", content: list[T] = []) -> None:
         super().__init__(level=level, type='link')
         MixinWithContentAttr.__init__(self, content=content)
         self.url = url
@@ -998,7 +1121,7 @@ class LinkDict(ElementDict, MixinWithContentAttr[T]):
                 "type": self.type,
                 "level": self.level,
                 "url": self.url,
-                "content": [item.to_dict() for item in self.content]
+                "content": [item.to_dict() for item in self.content if item is not None]
             }
         
     def __str__(self) -> str:
@@ -1007,17 +1130,31 @@ class LinkDict(ElementDict, MixinWithContentAttr[T]):
     def set_content(self, content: list[T] = []):
         return super().set_content(content)
     
+    def set_level(self, level: int):
+        return super().set_level(level)
+    
+    def getContentLength(self):
+        return super().getContentLength()
+    
+    def has_content(self):
+        return super().has_content()
+    
         
 class TextDict(ElementDict):
-    def __init__(self, level: int, content: str = "") -> None:
+    def __init__(self, level: int = None, content: str = "", italic: bool = False, bold: bool = False) -> None:
         super().__init__(level=level, type='text')
         self.content = content
+        self.annotation = {
+            'bold': bold,
+            'italic': italic
+        }
         
     def to_dict(self) -> dict:
         return {
                 "type": self.type,
                 "level": self.level,
-                "content": self.content
+                "content": self.content,
+                "annotation": self.annotation
             }
         
     def __str__(self) -> str:
@@ -1025,10 +1162,13 @@ class TextDict(ElementDict):
     
     def set_content(self, content: str = ""):
         self.content = content
+        
+    def set_level(self, level: int):
+        return super().set_level(level)
     
     
 class MediaDict(ElementDict, MixinWithDescriptionAttr[T]):
-    def __init__(self,  level: int, description: list[T] = [], url: str = "") -> None:
+    def __init__(self,  level: int = None, description: list[T] = [], url: str = "") -> None:
         super().__init__(level=level, type='media')
         MixinWithDescriptionAttr.__init__(self, description=description)
         self.url = url
@@ -1037,7 +1177,7 @@ class MediaDict(ElementDict, MixinWithDescriptionAttr[T]):
         return {
                 "type": self.type,
                 "level": self.level,
-                "description": [item.to_dict() for item in self.description],
+                "description": [item.to_dict() for item in self.description if item is not None],
                 "url": self.url
             }
         
@@ -1047,9 +1187,19 @@ class MediaDict(ElementDict, MixinWithDescriptionAttr[T]):
     def set_description(self, description: list[T] = []):
         return super().set_description(description)
     
+    def set_level(self, level: int):
+        return super().set_level(level)
+    
+    def has_description(self):
+        return super().has_description()
+    
+    def getDescriptionLength(self):
+        return super().getDescriptionLength()
+    
+    
     
 class TableDict(ElementDict, MixinWithDescriptionAttr[T], MixinWithRowAttr[T]):
-    def __init__(self,  level: int, description: list[T] = [], row: list[list[list[T]]] = []) -> None:
+    def __init__(self,  level: int = None, description: list[T] = [], row: list[list[list[T]]] = []) -> None:
         super().__init__(level=level, type='table')
         MixinWithRowAttr.__init__(self, row=row)
         MixinWithDescriptionAttr.__init__(self, description=description)
@@ -1058,7 +1208,7 @@ class TableDict(ElementDict, MixinWithDescriptionAttr[T], MixinWithRowAttr[T]):
         return {
                 "type": self.type,
                 "level": self.level,
-                "description": [item.to_dict() for item in self.description],
+                "description": [item.to_dict() for item in self.description if item is not None],
                 "row": ElementDict._to_dict_recursion(self.row) 
             }
         
@@ -1071,16 +1221,42 @@ class TableDict(ElementDict, MixinWithDescriptionAttr[T], MixinWithRowAttr[T]):
     def set_row(self, row: list[list[list[T]]] = []):
         return super().set_row(row)
     
+    def set_level(self, level: int):
+        return super().set_level(level)
+    
     def _to_dict_recursion(self, content):
         """Recursively process the content to handle nested structures."""
         if isinstance(content, list):
             return [self._to_dict_recursion(item) if isinstance(item, list) else item.to_dict() for item in content]
         return content
     
+    def has_description(self):
+        return super().has_description()
+    
+    def getDescriptionLength(self):
+        return super().getDescriptionLength()
+    
+    def has_row(self):
+        return super().has_row()
+    
+    def getTableDim(self):
+        return super().getTableDim()
+    
+    
     
     
 class HeadingDict(ElementDict, MixinWithChildrenAttr, MixinWithContentAttr):
-    def __init__(self,  level: int, children: list[T] = [], content: list[T] = []) -> None:
+    
+    """
+    Note(s)
+    --------------
+     -  Inner headings only exists if outer heading exists
+         -  h2 exists only if h1 exists
+     
+     
+    """
+    
+    def __init__(self,  level: int = None, children: list[T] = [], content: list[T] = []) -> None:
         super().__init__(level=level, type='heading')
         MixinWithChildrenAttr.__init__(self, children=children)
         MixinWithContentAttr.__init__(self, content=content)
@@ -1089,8 +1265,8 @@ class HeadingDict(ElementDict, MixinWithChildrenAttr, MixinWithContentAttr):
         return {
                 "type": self.type,
                 "level": self.level,
-                "children": [item.to_dict() for item in self.children],
-                "content": [item.to_dict() for item in self.content]
+                "children": [item.to_dict() for item in self.children if item is not None],
+                "content": [item.to_dict() for item in self.content if item is not None]
             }
         
     def __str__(self) -> str:
@@ -1102,12 +1278,25 @@ class HeadingDict(ElementDict, MixinWithChildrenAttr, MixinWithContentAttr):
     def set_content(self, content: list = []):
         return super().set_content(content)
     
-# TODO: add list dict
-## for ul tags
-
+    def set_level(self, level: int):
+        return super().set_level(level)
+    
+    def getChildrenLength(self):
+        return super().getChildrenLength()
+    
+    def getContentLength(self):
+        return super().getContentLength()
+    
+    def has_children(self):
+        return super().has_children()
+    
+    def has_content(self):
+        return super().has_content()
+    
+    
 class ListDict(ElementDict, MixinWithItemAttr[T]):
     
-    def __init__(self, level: int, item: list[list[T]] = []) -> None:
+    def __init__(self, level: int = None, item: list[list[T]] = []) -> None:
         super().__init__(level=level, type='list')
         MixinWithItemAttr.__init__(self, item=item)
         
@@ -1124,13 +1313,51 @@ class ListDict(ElementDict, MixinWithItemAttr[T]):
     def set_item(self, item: list[list[T]] = []):
         return super().set_item(item)
     
+    def set_level(self, level: int):
+        return super().set_level(level)
+    
     def _to_dict_recursion(self, content):
         """Recursively process the content to handle nested structures."""
         if isinstance(content, list):
             return [self._to_dict_recursion(item) if isinstance(item, list) else item.to_dict() for item in content]
         return content
 
+    def has_item(self):
+        return super().has_item()
+    
+    def getItemLength(self):
+        return super().getItemLength()
 
 
-# TODO: add PlaceholderDict
-## for div, body, section
+class PlaceholderDict(ElementDict, MixinWithContentAttr[T]):
+    
+    """
+    Use cases
+    ---------
+     -  div, body, section, etc.
+    """
+    
+    def __init__(self, content: list[T] = []) -> None:
+        super().__init__(level=None, type='placeholder')
+        MixinWithContentAttr.__init__(self, content=content)
+        
+    def to_dict(self) -> dict:
+        return {
+            "type": self.type,
+            "content": [item.to_dict() for item in self.content if item is not None],
+        }
+
+    def __str__(self) -> str:
+        return json.dumps(self.to_dict(), indent=4)
+    
+    def set_content(self, content: list[T] = []):
+        return super().set_content(content)
+    
+    def set_level(self, level: int):
+        raise TypeError(f'{PlaceholderDict.__name__} class does not support leveling. {PlaceholderDict.set_level.__name__} not implemented.')
+    
+    def has_content(self):
+        return super().has_content()
+    
+    def getContentLength(self):
+        return super().getContentLength

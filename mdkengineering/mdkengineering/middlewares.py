@@ -363,6 +363,7 @@ class MdkengineeringDownloaderMiddleware:
                      - Focuses on tags that can be used to build text based articles
                 -------------------------------------------------------------------------------
             """ 
+            
             filtered_content = content.xpath( 
                 './/*[ \
                     not(ancestor-or-self::table[contains(@class, "infobox")]) \

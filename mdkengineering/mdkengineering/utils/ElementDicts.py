@@ -395,7 +395,16 @@ class MixinWithContentAttr(ABC, Generic[T]):
     
     @abstractmethod
     def getContentLength(self):
-        return len(self.content)    
+        return len(self.content)   
+    
+    # @property
+    # def shape(self):
+    #     return self.calculate_shape()
+
+    # def calculate_shape(self):
+    #       Calculation logic needed for the dynamic shape of the content
+    #     raise NotImplementedError 
+        
         
 class MixinWithItemAttr(ABC, Generic[T]):
     
@@ -545,20 +554,25 @@ class ElementDict(ABC):
             elif type == 'placeholder':
                 return PlaceholderDict()
             
-        
-    
-    def __init__(self, level: int, type: str) -> None:
-        
+
+    def __init__(self, level: int, type: str, 
+                    # indices: list[int]
+                ) -> None:
         
         if type in ElementDict.allowed_types:
             self.type = type
         else:
-            raise ValueError(f"Type of element cannot be {type}")
+            raise ValueError(f"Type of element cannot be {type}.")
         
         if self.type == 'placeholder':
             self.level = None
         else:
             self.level = level
+        
+        ## indices: NULLable
+        ##           -  when it is the children of a list or a table, indices is None
+        ##           -  otherwise, it should contain list of int
+        # self.indices = indices
 
     @abstractmethod
     def to_dict(self) -> dict:
@@ -600,6 +614,7 @@ class ElementDict(ABC):
         if hasattr(self, 'content') and self.content:
             for contentChild in self.content: 
                 contentChild.incrementLevel(self.level)
+    
     
     def prettify(self):
         
@@ -1075,14 +1090,28 @@ class ElementDict(ABC):
         # ***************************************************************************************************
         # ***************************************************************************************************
         
-        
+
+## - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+## - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+## - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+## - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     
-    
+# ***************************************************************************************************
+# ***************************************************************************************************
+# ***********                                                                             ***********
+# ***********                     ElementDict types declarations                          ***********
+# ***********                                                                             ***********
+# ***************************************************************************************************
+# *************************************************************************************************** 
 
 class ParagraphDict(ElementDict, MixinWithContentAttr[T]):
     
-    def __init__(self,  level: int = None, content: list[T] = []) -> None:
-        super().__init__(level=level, type='paragraph')
+    def __init__(self,  level: int = None, content: list[T] = [], 
+                    # indices: list[int] = None
+                ) -> None:
+        super().__init__(level=level, type='paragraph', 
+                            # indices=indices
+                        )
         ## NOTE
         # self.content = content
         MixinWithContentAttr.__init__(self, content=content)
@@ -1090,6 +1119,7 @@ class ParagraphDict(ElementDict, MixinWithContentAttr[T]):
     def to_dict(self) -> dict:
         return {
                 "type": self.type,
+                # "indices": self.indices,
                 "level": self.level,
                 "content": [item.to_dict() for item in self.content if item is not None]
             }
@@ -1111,14 +1141,19 @@ class ParagraphDict(ElementDict, MixinWithContentAttr[T]):
     
     
 class LinkDict(ElementDict, MixinWithContentAttr[T]):
-    def __init__(self, level: int = None, url: str = "", content: list[T] = []) -> None:
-        super().__init__(level=level, type='link')
+    def __init__(self, level: int = None, url: str = "", content: list[T] = [], 
+                    # indices: list[int] = None
+                ) -> None:
+        super().__init__(level=level, type='link', 
+                            # indices=indices
+                        )
         MixinWithContentAttr.__init__(self, content=content)
         self.url = url
         
     def to_dict(self) -> dict:
         return {
                 "type": self.type,
+                # "indices": self.indices,
                 "level": self.level,
                 "url": self.url,
                 "content": [item.to_dict() for item in self.content if item is not None]
@@ -1141,8 +1176,12 @@ class LinkDict(ElementDict, MixinWithContentAttr[T]):
     
         
 class TextDict(ElementDict):
-    def __init__(self, level: int = None, content: str = "", italic: bool = False, bold: bool = False) -> None:
-        super().__init__(level=level, type='text')
+    def __init__(self, level: int = None, content: str = "", italic: bool = False, bold: bool = False, 
+                    # indices: list[int] = None
+                ) -> None:
+        super().__init__(level=level, type='text',
+                            # indices=indices
+                        )
         self.content = content
         self.annotation = {
             'bold': bold,
@@ -1152,6 +1191,7 @@ class TextDict(ElementDict):
     def to_dict(self) -> dict:
         return {
                 "type": self.type,
+                # "indices": self.indices,
                 "level": self.level,
                 "content": self.content,
                 "annotation": self.annotation
@@ -1168,14 +1208,19 @@ class TextDict(ElementDict):
     
     
 class MediaDict(ElementDict, MixinWithDescriptionAttr[T]):
-    def __init__(self,  level: int = None, description: list[T] = [], url: str = "") -> None:
-        super().__init__(level=level, type='media')
+    def __init__(self,  level: int = None, description: list[T] = [], url: str = "",
+                    # indices: list[int] = None
+                ) -> None:
+        super().__init__(level=level, type='media',
+                            # indices=indices
+                        )
         MixinWithDescriptionAttr.__init__(self, description=description)
         self.url = url
         
     def to_dict(self) -> dict:
         return {
                 "type": self.type,
+                # "indices": self.indices,
                 "level": self.level,
                 "description": [item.to_dict() for item in self.description if item is not None],
                 "url": self.url
@@ -1199,14 +1244,19 @@ class MediaDict(ElementDict, MixinWithDescriptionAttr[T]):
     
     
 class TableDict(ElementDict, MixinWithDescriptionAttr[T], MixinWithRowAttr[T]):
-    def __init__(self,  level: int = None, description: list[T] = [], row: list[list[list[T]]] = []) -> None:
-        super().__init__(level=level, type='table')
+    def __init__(self,  level: int = None, description: list[T] = [], row: list[list[list[T]]] = [],
+                    # indices: list[int] = None
+                ) -> None:
+        super().__init__(level=level, type='table',
+                            # indices=indices
+                        )
         MixinWithRowAttr.__init__(self, row=row)
         MixinWithDescriptionAttr.__init__(self, description=description)
         
     def to_dict(self) -> dict:
         return {
                 "type": self.type,
+                # "indices": self.indices,
                 "level": self.level,
                 "description": [item.to_dict() for item in self.description if item is not None],
                 "row": ElementDict._to_dict_recursion(self.row) 
@@ -1256,14 +1306,19 @@ class HeadingDict(ElementDict, MixinWithChildrenAttr, MixinWithContentAttr):
      
     """
     
-    def __init__(self,  level: int = None, children: list[T] = [], content: list[T] = []) -> None:
-        super().__init__(level=level, type='heading')
+    def __init__(self,  level: int = None, children: list[T] = [], content: list[T] = [], 
+                    # indices: list[int] = None
+                ) -> None:
+        super().__init__(level=level, type='heading',
+                            # indices=indices
+                        )
         MixinWithChildrenAttr.__init__(self, children=children)
         MixinWithContentAttr.__init__(self, content=content)
         
     def to_dict(self) -> dict:
         return {
                 "type": self.type,
+                # "indices": self.indices,
                 "level": self.level,
                 "children": [item.to_dict() for item in self.children if item is not None],
                 "content": [item.to_dict() for item in self.content if item is not None]
@@ -1296,13 +1351,18 @@ class HeadingDict(ElementDict, MixinWithChildrenAttr, MixinWithContentAttr):
     
 class ListDict(ElementDict, MixinWithItemAttr[T]):
     
-    def __init__(self, level: int = None, item: list[list[T]] = []) -> None:
-        super().__init__(level=level, type='list')
+    def __init__(self, level: int = None, item: list[list[T]] = [],
+                    # indices: list[int] = None
+                ) -> None:
+        super().__init__(level=level, type='list',
+                            # indices=indices
+                        )
         MixinWithItemAttr.__init__(self, item=item)
         
     def to_dict(self) -> dict:
         return {
             "type": self.type,
+            # "indices": self.indices,
             "level": self.level,
             "item": ElementDict._to_dict_recursion(self.item) 
         }
@@ -1337,13 +1397,18 @@ class PlaceholderDict(ElementDict, MixinWithContentAttr[T]):
      -  div, body, section, etc.
     """
     
-    def __init__(self, content: list[T] = []) -> None:
-        super().__init__(level=None, type='placeholder')
+    def __init__(self, content: list[T] = [],
+                    # indices: list[int] = None
+                ) -> None:
+        super().__init__(level=None, type='placeholder',
+                            # indices=indices
+                        )
         MixinWithContentAttr.__init__(self, content=content)
         
     def to_dict(self) -> dict:
         return {
             "type": self.type,
+            # "indices": self.indices,
             "content": [item.to_dict() for item in self.content if item is not None],
         }
 

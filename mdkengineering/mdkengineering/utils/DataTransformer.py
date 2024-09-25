@@ -12,9 +12,9 @@ class Transformer(ABC):
     def toText(self) -> str:
         pass
     
-    @abstractmethod
-    def toDataFrame(self) -> DataFrame:
-        pass
+    # @abstractmethod
+    # def toDataFrame(self) -> DataFrame:
+    #     pass
     
 
 class HtmlTableTransformer(Transformer):
@@ -113,20 +113,29 @@ class HtmlTableTransformer(Transformer):
         Extract everything in ElementDict format
         """
         
+        ## TODO: 
+        # the result is empty, need to check the implementation
         
         from mdkengineering.utils.Parse import transform_tag_to_ElementDict
-        
-        table_list = []
+
+        # print(f"input html: {type(self.table_html)}...\n")
+        table_list = [] # The "row" field value
         row_spans = {}
         try:
-            for row_idx, row in enumerate(self.table_html.find_all(('tr'))):
+            for row_idx, row in enumerate(self.table_html.find_all(('tr'))): ## html to be replaced by self.tablehtml
+                
                 cells = []
                 col_idx = 0
                 
-                for cell in row.find_all(['th', 'td']):
+                for cell_idx, cell in enumerate(row.find_all(['th', 'td'])):
+
+                    # print(f"found th / tr: {cell_idx}")
+                    
                     while col_idx in row_spans and row_spans[col_idx]['count'] > 0:
                         
                         ## Considering how many cells the row should skip for the next value
+
+                        # print(f"appending row_spans[col_idx]['value']: {row_spans[col_idx]['value']}\n")
                         
                         cells.append(row_spans[col_idx]['value'])
                         row_spans[col_idx]['count'] -= 1
@@ -135,33 +144,34 @@ class HtmlTableTransformer(Transformer):
                         col_idx += 1
                         
                         
-                        cell_content = []
-                        
-                        for item in cell.contents:
-                            cell_content.append(transform_tag_to_ElementDict(item))
-                        
-                        
-                        rowspan = int(cell.get('rowspan', 1))
-                        colspan = int(cell.get('colspan', 1))
-                        
-                        
-                        for _ in range(colspan):
-                            cells.append() ## APPEND CURRENT CELL CONTENT!!!
-                        
-                        if rowspan > 1:
-                            for i in range(colspan):
-                                row_spans[col_idx - colspan + i] = {'value': cell_content, 'count': rowspan - 1}
-                                
-                    while col_idx in row_spans and row_spans[col_idx]['count'] > 0:
-                        cells.append(row_spans[col_idx]['value'])
-                        row_spans[col_idx]['count'] -= 1
-                        if row_spans[col_idx]['count'] == 0:
-                            del row_spans[col_idx]
+                    cell_content = []
+                    
+                    for item in cell.contents:
+                        cell_content.append(transform_tag_to_ElementDict(item))
+                    
+                    
+                    rowspan = int(cell.get('rowspan', 1))
+                    colspan = int(cell.get('colspan', 1))
+                    
+                    
+                    for _ in range(colspan):
+                        cells.append(cell_content) ## APPEND CURRENT CELL CONTENT!!!
                         col_idx += 1
-                        
-                    table_list.append(cells)
+                    
+                    if rowspan > 1:
+                        for i in range(colspan):
+                            row_spans[col_idx - colspan + i] = {'value': cell_content, 'count': rowspan - 1}
+                            
+                while col_idx in row_spans and row_spans[col_idx]['count'] > 0:
+                    cells.append(row_spans[col_idx]['value'])
+                    row_spans[col_idx]['count'] -= 1
+                    if row_spans[col_idx]['count'] == 0:
+                        del row_spans[col_idx]
+                    col_idx += 1
+                    
+                table_list.append(cells)
                 
-                return table_list
+            return table_list
         except Exception as e:
             raise ValueError(f'table parsing error: {e}')
             
@@ -204,27 +214,27 @@ class HtmlTableTransformer(Transformer):
                 
         return concatenated_cell_content
     
-    def toDataFrame(self):
-        if self.table_html:
-            header_row = None
-            for row in self.table_list:
-                if any(row):
-                    header_row = row
-                    break
+    # def toDataFrame(self):
+    #     if self.table_html:
+    #         header_row = None
+    #         for row in self.table_list:
+    #             if any(row):
+    #                 header_row = row
+    #                 break
             
-            df = pd.DataFrame(self.table_list, columns=header_row)
-            return df
-        else:
-            ## TODO
-            ## a different algorithm that concatenates the list of content inside each cell
-            return
+    #         df = pd.DataFrame(self.table_list, columns=header_row)
+    #         return df
+    #     else:
+    #         ## FUTURE
+    #         ## a different algorithm that concatenates the list of content inside each cell
+    #         return
     
-    def encodeText(self):
+    # def encodeText(self):
         
-        ## To detect table: look for "<table> ||" beginning and "|| <table>" ending
+    #     ## To detect table: look for "<table> ||" beginning and "|| <table>" ending
         
-        textTable = self.toText()
-        return f"<table> {textTable} <table>"
+    #     textTable = self.toText()
+    #     return f"<table> {textTable} <table>"
     
     
 class HTMLListTransformer(Transformer):

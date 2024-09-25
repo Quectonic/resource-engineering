@@ -3,11 +3,14 @@ from bs4.element import NavigableString, Tag
 from typing import TypeVar
 from mdkengineering.utils.ElementDicts import *
 from mdkengineering.utils.DataTransformer import *
+import textwrap
 
 T = TypeVar('T', bound=ElementDict) 
 
 def transform_tag_to_ElementDict(tag: Tag | NavigableString, base_url: str = "",
-                                #  verbose: bool = False, indent: int = 4
+                                    verbose: bool = False, indent: int = 0, 
+                                    # current_location: list[int] = None,
+                                    # origin: bool = True,
                                 ) -> list[T] | T:
     
     """
@@ -16,6 +19,12 @@ def transform_tag_to_ElementDict(tag: Tag | NavigableString, base_url: str = "",
     Parameter(s)
     ------------
     tag: BeautifulSoup
+    base_url: str --> the base url of the website [optional]
+    verbose: bool --> whether or not to print the parsing process [optional]
+    indent: int --> the indentation level of the print [optional]
+    current_location: list[int] --> the current location of the tag in the list [optional]
+    origin: bool --> whether or not the tag is the outermost tag [optional]
+    
     
     Return(s)
     ------------
@@ -33,54 +42,85 @@ def transform_tag_to_ElementDict(tag: Tag | NavigableString, base_url: str = "",
     Use Case(s)
     -----------
     .. code-block:: python
-        return [transform_tag_to_ElementDict(subtag) for subtag in surroundingTag]
+        return [transform_tag_to_ElementDict(subtag, ...) for subtag in surroundingTag]
     """
-    
     
     
     if type(tag) is NavigableString:
         ## print(f'text detected')
         
-        return TextDict(content=tag)
+        return TextDict(
+            content=tag, 
+            # indices=current_location,
+        )
     
     elif tag.name and re.match(r'h\d+', tag.name):
         ## print(f'heading detected')
         
         tmp_level = int(tag.name[1:])
         heading_content = list()
-        for item in tag.contents:
-            parsed_item = transform_tag_to_ElementDict(item)
-            print(f'Appending from heading condition: {parsed_item}')
+        for idx, item in enumerate(tag.contents):
+            # if current_location is not None and isinstance(current_location, list):
+#                location = current_location.append(idx)
+#            else:
+#                location = None
+            parsed_item = transform_tag_to_ElementDict(
+                item, verbose=verbose, indent=indent+4, 
+                # current_location=location, origin=False
+                )
+            if verbose:
+                indented_message = textwrap.indent(f"Appending from heading condition: {parsed_item}", f"{' ' * indent}")
+                print(indented_message)
             heading_content.append(parsed_item)
-            
-        heading = HeadingDict(level=tmp_level, content=heading_content)
+        
+        
+        heading = HeadingDict(
+            level=tmp_level, content=heading_content, 
+            # indices=current_location,
+            )
         
         # print(f'heading_content: {heading_content}')
         return heading
     
     elif tag.name == 'b':
-        
-        print(f'Appending from bold text: {tag.get_text()}')
-        return TextDict(content=tag.get_text(), bold=True)
+        if verbose:
+            indented_message = textwrap.indent(f"Appending from bold text: {tag.get_text()}", f"{' ' * indent}")
+            print(indented_message)
+        return TextDict(
+            content=tag.get_text(), bold=True, 
+            # indices=current_location,
+            )
     
     elif tag.name == 'i':
-        
-        print(f'Appending from italic text: {tag.get_text()}')
-        return TextDict(content=tag.get_text(), italic=True)
+        if verbose:
+            indented_message = textwrap.indent(f"Appending from italic text: {tag.get_text()}", f"{' ' * indent}")
+            print(indented_message)
+        return TextDict(
+            content=tag.get_text(), italic=True, 
+            # indices=current_location,
+            )
     
     elif tag.name == 'p':
         ## print(f'paragraph detected')
         
         paragraph_content = list()
-        for item in tag.contents:
-            
-            parsed_item = transform_tag_to_ElementDict(item)
-            print(f'Appending from paragraph condition: {parsed_item}')
+        for idx, item in enumerate(tag.contents):
+            # if current_location is not None and isinstance(current_location, list):
+#                location = current_location.append(idx)
+#            else:
+#                location = None
+            parsed_item = transform_tag_to_ElementDict(item, verbose=verbose, indent=indent+4, 
+                                                    #    current_location=location, origin=False
+                                                       )
+            if verbose:
+                indented_message = textwrap.indent(f"Appending from paragraph condition: {parsed_item}", f"{' ' * indent}")
+                print(indented_message)
             paragraph_content.append(parsed_item)
             
             
         return ParagraphDict(
-            content=paragraph_content
+            content=paragraph_content,
+            # indices=current_location,
         )
         
     elif tag.name == 'a':
@@ -88,14 +128,23 @@ def transform_tag_to_ElementDict(tag: Tag | NavigableString, base_url: str = "",
         
         link_content = list()
         
-        for item in tag.contents:
-            parsed_item = transform_tag_to_ElementDict(item)
-            print(f'Appending from link condition: {parsed_item}')
+        for idx, item in enumerate(tag.contents):
+            # if current_location is not None and isinstance(current_location, list):
+#                location = current_location.append(idx)
+#            else:
+#                location = None
+            parsed_item = transform_tag_to_ElementDict(item, verbose=verbose, indent=indent+4,
+                                                    #    current_location=location, origin=False
+                                                       )
+            if verbose:
+                indented_message = textwrap.indent(f"Appending from link condition: {parsed_item}", f"{' ' * indent}")
+                print(indented_message)
             link_content.append(parsed_item)
             
         return LinkDict(
             url=str(tag.get("href")),
-            content=link_content
+            content=link_content,
+            # indices=current_location,
         )
         
     elif tag.name == 'table':
@@ -107,8 +156,12 @@ def transform_tag_to_ElementDict(tag: Tag | NavigableString, base_url: str = "",
         caption = list()
         if tag.find('caption'):
             for caption_item in tag.find('caption').contents:
-                parsed_item = transform_tag_to_ElementDict(caption_item)
-                print(f'Appending from table condition: {parsed_item}')
+                parsed_item = transform_tag_to_ElementDict(caption_item, verbose=verbose, indent=indent+4, 
+                                                        #    origin=False
+                                                           )
+                if verbose:
+                    indented_message = textwrap.indent(f"Appending from table caption condition: {parsed_item}", f"{' ' * indent}")
+                    print(indented_message)
                 caption.append(parsed_item)
             
         return TableDict(
@@ -126,8 +179,12 @@ def transform_tag_to_ElementDict(tag: Tag | NavigableString, base_url: str = "",
         for list_bulletin in tag.find_all('li'):
             sub_content = list()
             for list_item in list_bulletin.contents:
-                parsed_item = transform_tag_to_ElementDict(list_item)
-                print(f'Appending from list condition: {parsed_item}')
+                parsed_item = transform_tag_to_ElementDict(list_item, verbose=verbose, indent=indent+4, 
+                                                        #    origin=False
+                                                           )
+                if verbose:
+                    indented_message = textwrap.indent(f"Appending from list condition: {parsed_item}", f"{' ' * indent}")
+                    print(indented_message)
                 sub_content.append(parsed_item)
             items.append(sub_content)
         return ListDict(
@@ -141,16 +198,25 @@ def transform_tag_to_ElementDict(tag: Tag | NavigableString, base_url: str = "",
         
         caption_contents = tag.find('figcaption').contents
         caption = list()
-        for caption_item in caption_contents:
-            parsed_item = transform_tag_to_ElementDict(caption_item)
-            print(f'Appending from paragraph condition: {parsed_item}')
+        for idx, caption_item in enumerate(caption_contents):
+            # if current_location is not None and isinstance(current_location, list):
+#                location = current_location.append(idx)
+#            else:
+#                location = None
+            parsed_item = transform_tag_to_ElementDict(caption_item, verbose=verbose, indent=indent+4, 
+                                                    #    current_location=location, origin=False
+                                                       )
+            if verbose:
+                indented_message = textwrap.indent(f"Appending from figure caption content (can be any ElementDict type) condition: {parsed_item}", f"{' ' * indent}")
+                print(indented_message)
             caption.append(parsed_item)
         
         source = tag.find('img').attrs['src']
         
         return MediaDict(
             description=caption,
-            url=base_url+source
+            url=base_url+source,
+            # indices=current_location,
         )
         
     
@@ -161,29 +227,50 @@ def transform_tag_to_ElementDict(tag: Tag | NavigableString, base_url: str = "",
         
         caption_contents = tag.find('div', attrs={"class": "gallerytext"}).contents
         caption = list()
-        for caption_item in caption_contents:
-            parsed_item = transform_tag_to_ElementDict(caption_item)
-            print(f'Appending from paragraph condition: {parsed_item}')
+        for idx, caption_item in enumerate(caption_contents):
+            # if current_location is not None and isinstance(current_location, list):
+#                location = current_location.append(idx)
+#            else:
+#                location = None
+            parsed_item = transform_tag_to_ElementDict(caption_item, verbose=verbose, indent=indent+4,
+                                                    #    current_location=location, origin=False
+                                                       )
+            if verbose:
+                indented_message = textwrap.indent(f"Appending from gallerybox caption content (can be any ElementDict type) condition: {parsed_item}", f"{' ' * indent}")
+                print(indented_message)
             caption.append(parsed_item)
         
         source = tag.find('img').attrs['src']
         
         return MediaDict(
             description=caption,
-            url=base_url+source
+            url=base_url+source,
+            # indices=current_location,
         )
         
     # elif tag.name == 'div' or tag.name == 'section' or tag.name == 'body':
     else:
         ## print(f'{tag.name} detected')
+        content = list()
+        
+        for idx, subtag in enumerate(tag.contents):
+            # if current_location is not None and isinstance(current_location, list):
+#                location = current_location.append(idx)
+#            else:
+#                location = None
+            content.append(transform_tag_to_ElementDict(subtag, verbose=verbose, indent=indent+4, 
+                                                        # current_location=location, origin=False
+                                                        )
+                           )
         
         return PlaceholderDict(
-            content=[transform_tag_to_ElementDict(subtag) for subtag in tag.contents if subtag is not None and isinstance(subtag, Tag)]
+            content=content,
+            # indices=current_location,
         )
         # return [transform_tag_to_ElementDict(subtag) for subtag in tag.contents]
     
     
-def add_header_enclosure(children_elements: list[ElementDict] = [], content_elements: list[ElementDict] = []):
+def add_header_enclosure(children_elements: list[ElementDict] = [], content_elements: list[ElementDict] = [], indices: list[int] = []):
     
     """
     Adding a heading ElementDict to encapsulate the list of elements
@@ -202,7 +289,8 @@ def add_header_enclosure(children_elements: list[ElementDict] = [], content_elem
     return HeadingDict(
         level=1,
         children=children_elements,
-        content=content_elements
+        content=content_elements,
+        indices=indices
     )
         
         

@@ -35,6 +35,7 @@ from lxml import etree
 from ..utils.DataTransformer import HtmlTableTransformer
 from bs4 import BeautifulSoup
 import re
+import json
 
 
 ## NOTE: Might be good for future implementation for scalability
@@ -50,6 +51,15 @@ import re
 
 
 class WikidocspiderSpider(CrawlSpider):
+    
+    """# 🍪 **Status: _Default_**
+
+    Description
+    -----------
+        This spider crawls through the WikiDoc website and extracts medical information.
+        
+    """
+    
     name = "wikiDocSpider"
     allowed_domains = ["wikidoc.org"]
     start_urls = [
@@ -64,10 +74,10 @@ class WikidocspiderSpider(CrawlSpider):
         
         
         
-        "https://www.wikidoc.org/index.php/Sexually_transmitted_disease"
+        "https://www.wikidoc.org/index.php/Sexually_transmitted_disease",
+        "https://www.wikidoc.org/index.php/Heart",
+        
     ]
-    
-    visited_urls = set()
 
     rules = (
         ## Example:
@@ -86,14 +96,18 @@ class WikidocspiderSpider(CrawlSpider):
         Rule(LinkExtractor(), callback="parse_item", follow=True),
     )
     
+    
+    ## FOR DEBUGGING PURPOSES
     custom_settings = {
         'CLOSESPIDER_ITEMCOUNT': 5,
     }
-
     
     ## If url ends with "_project"
     ######  do not parse --> follow links but no need for information extraction
     def parse_item(self, response):
+        
+        self.logger.info(f"Processing URL: {response.url}")
+        
         try: 
             ## Pages restricted here will not be parsed but the link follow logic still applies
             if response.meta.get('skip_item_extraction'):
@@ -154,6 +168,10 @@ class WikidocspiderSpider(CrawlSpider):
                     lxml_html_target.append(tmp_soup)
             
             
+            lxml_html_target_str = [str(tag) for tag in lxml_html_target]
+            
+            # print(f"LXML HTML TARGET: {lxml_html_target}")
+            
             """
                 -------------------------------------------------------------------------------
                  -  [ ] 1st Phase Transformation ~ Convert tag content into human readable text: 
@@ -166,137 +184,33 @@ class WikidocspiderSpider(CrawlSpider):
             """ 
             
             ## - content
-            ## [ ] 0. (RAW TEXT) Content: [{}]
+            ## [x] 0. (RAW TEXT) Content: [{}]
             ##          0.1. section
             ##              0.1.1 text
             ## - Metadata types
-            ## [ ] 1. last-modified (date it was last modified) : date
+            ## [x] 1. last-modified (date it was last modified) : date
             ## [x] 2. source (url) : string [x]
             ## [x] 3. (page) title : string [x]
-            ## [ ] 5. (custom) id (url-ending+last_modified date) : string
-            ## [ ] 6. keyword : []
-            ## [ ] 7. authors: []
+            ## [x] 5. (custom) id (url-ending+last_modified date) : string
+            ## [x] 6. keywords : []
+            ## [x] 7. authors: []
+            ## [x] 8. categories : [] 
             item = {
-                'content': lxml_html_target, ## TODO: Process the tags from html_tags
+                'content': lxml_html_target_str, 
                 'title': title,
-                'source': response.url
+                'source': response.url,
+                'categories': categories,
+                'keywords': keywords,
+                'id': id,
+                'last-modified': last_modified.strftime('%Y-%m-%d'),
+                'authors': authors,
             }
             
-            # self.logger.info(f'Parsing page: {response.url}')
-            # self.logger.info(f"response meta information: {response.meta['cleaned_details']['html_content']}")
+            self.logger.info(f"Extracted Content from {response.url}: {json.dumps(item, indent=4)}")
+            
+            
             return item
         except Exception as error:
             self.logger.error(f'Unknown Error Encountered, {error}')
             return {}
-    
-    def transform_bs4_html_list(self, title: str, bs_html_list: list[BeautifulSoup]):
-        
-        ## Integrate 'transform_bs4_html' to process each item in 'bs_html_list'
-        
-        ## TODO: handle h2, h3, h4, ... tags
-        
-        base_content_dict = {
-            "type": "article",
-            "level": 1,
-            "title": title, 
-            "content": []
-        }
-        raise NotImplementedError
-    
-    
-    
-    def transform_bs4_html(self, level: int, bs_html: BeautifulSoup):
-        """
-            ------------------------------------------------------------------------------------------------------------
-                Parses the document structure and returns a hierarchical JSON-like structure.
-
-                The function returns a ElementDict.
-                
-                Rules for determining the hierarchy:
-                - `level` is an integer indicating where this JSON should be placed in the hierarchy
-                - If the level of the current item is less than the level of the last item, it becomes a parent.
-                - If the level of the current item is equal to the level of the last item, it remains at the same 
-                hierarchy.
-                - If the level of the current item is greater than the level of the last item, it becomes a child 
-                and initiates NEW HIERARCHICAL LEVEL SPACE, needed for parent function to process next tag if 
-                applicable.
-                - If the level of the current item is `-1`, it indicates a tag that falls under the children content 
-                of the last tag, with the hierarchical level provided as 'level' parameter
-
-                Returns:
-                    level (int): The level of the current item.
-                    content_dict (dict): Dictionary shown above
-            ------------------------------------------------------------------------------------------------------------
-        """
-        ## check type of tag
-        ## allocate types and content transformation methods correspondingly
-        nested_content = ""
-        if (bs_html.body.contents[0].name == 'p'):
-            # bs_html.body.contents[0].string => the text string inside
-            
-            for text in bs_html.body.strings:
-                nested_content += text
-            
-            return -1, {
-                'type': "paragraph",
-                'level': level,
-                'content': nested_content
-            }
-        elif (bs_html.body.contents[0].name == 'table'):
-            ## Table HTML tag to text
-            
-            str_soup = str(bs_html.body.contents[0])
-            
-            table_text = self.parse_table(str_soup)
-            
-            return -1, {
-                'type': 'table',
-                'content': table_text
-            }
-        elif (bs_html.body.contents[0].name == r'h\d+'):
-            ## Heading tag to text
-            
-            pattern = 'h(\d+)'
-            level = re.findall(pattern, bs_html.body.contents[0].name, re.IGNORECASE)[0]
-            
-            return level, {
-                'type': 'section',
-                'title': ''.join(bs_html.body.contents[0].strings),
-                'content': []
-            }
-        elif (bs_html.body.contents[0].name == 'figure'):
-            return None
-        elif (bs_html.body.contents[0].name == 'div'):
-            ## Div Tag 
-            ## Require detection of special tags like "gallery", etc.
-            div = bs_html.body.contents[0]
-            
-            ## recursive on every child tag found
-            ## TODO: work on the return / yield mechanisms
-            for sub in div.contents:
-                self.transform_bs4_html(sub)
-        
-        elif (bs_html.body.contents[0].name == 'ul'):
-            
-            ## TODO
-            return {}
-            
-        else:
-            
-            ## TODO
-            return {}
-    
-    ## NOTE: before use, convert table_html to string format
-    def parse_table(self, table_html):
-        ## table_html: <table>...</table> in string format
-        table_parser = HtmlTableTransformer(table_html=table_html)
-        tagged_table = table_parser.rows.toText()
-        
-        return tagged_table
-    
-    ## NOTE: before use, convert ul_html to string format
-    def parse_ul(self, ul_html):
-        ## ul_html: <ul> <li> ... </li> ... </ul> in string format
-        pass
-
 

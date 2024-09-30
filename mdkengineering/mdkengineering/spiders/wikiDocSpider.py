@@ -28,12 +28,12 @@
 """
 
 
-import scrapy
-from scrapy.linkextractors import LinkExtractor
-from scrapy.spiders import CrawlSpider, Rule
-from lxml import etree
+import scrapy # type: ignore 
+from scrapy.linkextractors import LinkExtractor # type: ignore
+from scrapy.spiders import CrawlSpider, Rule # type: ignore
+from lxml import etree # type: ignore
 from ..utils.DataTransformer import HtmlTableTransformer
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup # type: ignore
 import re
 import json
 
@@ -72,8 +72,8 @@ class WikidocspiderSpider(CrawlSpider):
         # # Sort by study subjects
         # "https://www.wikidoc.org/index.php/Main_Page"
         
-        
-        
+        ## TODO: ADD NODAL PAGES
+        # 'https://www.wikidoc.org/index.php/DNA',
         "https://www.wikidoc.org/index.php/Sexually_transmitted_disease",
         "https://www.wikidoc.org/index.php/Heart",
         
@@ -110,7 +110,7 @@ class WikidocspiderSpider(CrawlSpider):
         
         try: 
             ## Pages restricted here will not be parsed but the link follow logic still applies
-            if response.meta.get('skip_item_extraction'):
+            if response.meta.get('skip_item_extraction') or response.url.endswith('Main_Page'):
                 self.logger.info(f'Spider => Skipping Page: {response.url}')
                 return
             
@@ -168,9 +168,14 @@ class WikidocspiderSpider(CrawlSpider):
                     lxml_html_target.append(tmp_soup)
             
             
-            lxml_html_target_str = [str(tag) for tag in lxml_html_target]
-            
-            # print(f"LXML HTML TARGET: {lxml_html_target}")
+            ## Final check on the content --> not empty after strip()
+            lxml_html_target_str = []
+            for item in lxml_html_target:
+                if len(item.text.strip()) != 0:
+                    lxml_html_target_str.append(item)
+                    
+            if len(lxml_html_target_str) == 0:
+                return
             
             """
                 -------------------------------------------------------------------------------

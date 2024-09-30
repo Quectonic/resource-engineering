@@ -183,7 +183,27 @@ class MdkengineeringSpiderMiddleware:
         
         spider.logger.info("MdkengineeringSpiderMiddleware: Spider opened: %s" % spider.name)
 
+
+
+
+
+
+
+
+
+
+
 ##################################################################
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -410,12 +430,6 @@ class RotateUserAgentDownloaderMiddleware:
 
 
 
-
-
-
-
-
-
 class WikiDocURLFilterDownloaderMiddleware:
     
     """# 🍪 **Status: _Implemented_** 
@@ -547,7 +561,8 @@ class WikiDocURLFilterDownloaderMiddleware:
         """
         for pattern in self.deny_patterns:
             if pattern.search(request.url):
-                spider.logger.info(f'WikiDocURLFilterDownloaderMiddleware: Blacklist URL Detected: Response Blocked from Entering Spider \nBlocked Pattern: {pattern}')
+                spider.logger.info(f'WikiDocURLFilterDownloaderMiddleware: Blacklist URL Detected: Response Blocked from Entering Spider')
+                spider.logger.info(f'WikiDocURLFilterDownloaderMiddleware: Blocked Pattern: {pattern}')
                 raise IgnoreRequest(f"WikiDocURLFilterDownloaderMiddleware: Blocked URL: {request.url}")
         return response
 

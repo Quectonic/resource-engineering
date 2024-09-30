@@ -1,0 +1,53 @@
+{
+    "content": [
+        "Overview",
+        "All editable pages on WikiDoc have an associated page history, which lists all changes made to the page in reverse-chronological order. This may also be referred to as the revision history or edit history.\n",
+        "Quick Tutorial",
+        "To view a specific version, click a date .\nTo compare an old version with the current version, click cur.\nTo compare a version with its predecessor, click last.\nTo compare to specific versions, tick the right-column radio button of the newer version and the left-column radio button of the older version, and then click the \"Compare selected versions\" button.\nMinor edits are denoted as m.",
+        "Detailed tutorial",
+        "The page history consists HUJ of the old versions of the wikitext, as well as a record of the date and time (in UTC) of every edit, the username or IP address of the user who wrote it, and their Help:Edit summary/edit summary. Access the page history by clicking the \"history\" tab at the top of the page.\n",
+        "Using page history",
+        "Below is an example of a page history using the default skin:\n\nEdits are shown from newest to oldest. Each edit takes up one line which shows; time & date, the contributor's name or IP and the edit summary, as well as other diagnostic information.\nLet's look at some of the functions of this page:\n",
+        "The page name stays the same, but the \"history\" tab is highlighted.\nThese links take you to the users most recent edits (Latest), oldest edits (Earliest) or the next or previous page of edits (Next n / Previous n). Note that the black text in brackets will become links, when applicable.\nThe blue numbers list the number of edits displayed on a page - 20, 50, 100, 250 or 500. A higher number increases the length of a page but reduces the number of pages. The number you select replaces n in the links to the previous or next pages e.g. (Next 100 / Previous 100).\n(cur) takes you to a diff page, showing the difference between that edit and the current version. The current revision appears below the changes, so you can see how the page is now rendered.\n(last) takes you to a diff page showing the changes between that edit and the previous version. The most recent version (the one on the same line as the \"last\" you clicked on) appears below the changes, so you can see how the page was rendered.\nThe two columns of radio buttons can be used to select any two versions on the page. Lets say you want to compare the versions corresponding to numbers 10 & 11 on the image. First, click the left radio button next to number 11. The right column of buttons will then fill as far as number 11. Then click the right button next to number 10. Finally click Compare selected versions. This takes you to a diff page showing the changes between the two versions. The most recent version (in this case number 10) appears below the changes, so you can see how the page was rendered.\nThis gives the time and date of the edit, expressed in local time according to the preference setting\nThe username or IP  of the contributor appears here.\nThis is the edit summary. It is the text the user wrote in the edit summary box (below the edit box).\nThis edit summary begins with an arrow link and grey text. This means the user has only edited a section of the page (named in the grey text). This text is automatically added when you edit a section. A standard edit summary can be added by the user. This appears in black text.\nm stands for minor edit (small corrections to a page). These help you understand the type of changes that have been made.",
+        "If the \"move page\" feature has been used in the past to change a page's name, the entire edit history of the article, before and after the move, is shown. The old title becomes a redirect and loses its edit history. After merging two pages, typically one becomes a redirect. In this case the revision history of the redirect is kept.\n",
+        "Edits made to deleted pages are not kept in contributor's User Contributions pages. However, the revision history is kept and can be retrieved by an administrator, who can also undelete the page (see w:Wikipedia:Viewing and restoring deleted pages by sysops).\n",
+        "Reverting a page",
+        "If your new pages edits aren't to your liking, don't panic; you can 'revert' the page to any previous version.\n",
+        "Composite pages (transclusion)",
+        "A section of a page may be an included separate page (via a method known as transclusion), see composite pages. A separate edit history is provided for the section, and this transcluded page must be watched separately. See m:Help:A simple composite example.\n",
+        "Image history",
+        "An \"image\" (in the broad sense of an uploaded file) can be edited, or, more generally, be replaced by a different image, by uploading a new image file with the same name. Again all versions are kept. The image history listing forms part of the image description page, which appears when clicking on the image. The image history consists of this and the old versions themselves.\n",
+        "Not kept are images which have been deleted (not to be confused with images that are no longer used in articles), the only record available is the upload log, deletion log and possibly the \"votes for deletion\" archive. Neither the latest nor older versions are kept by the system, hence it is not possible to undelete an image.\n",
+        "Linking to a specific version of a page",
+        "It is occasionally useful to link to a specific version of an article (a snapshot of it).  For example, one might have done a review of a Wikipedia article and want to indicate which particular version was reviewed. \n",
+        "If the version is not the current version, one can use the page history to view the old version of the page.  The URL of this old version is suitable for use to permanently reference this version, and can usually be obtained from the browser's location bar.\n",
+        "See also URLs of old versions of pages.\n",
+        "The history of the wikitext should not be confused with the history of the rendered page:\n",
+        "If a page contains a time-based variable, its rendered content varies with time; for example, {{CURRENTTIME}} gives the time of viewing the page; if at some stage the tag {{subst:CURRENTTIME}} has been placed, it has been replaced in the wikitext by the time of saving that revision; there is no variable for the time of saving the particular revision.\nIn particular, templates and images will vary if they are referred to with an expression containing a variable depending on time\nThe current versions of templates and images are used - it is not possible to specify a particular revision, unless old versions are given different names. Note that also templates used within these templates may have been revised.",
+        "For a true permalink, upload the rendered page as HTML file (if enabled by the system) and link to the URL, e.g. http://upload.wikimedia.org/wikipedia/en/d/d1/Wikitest.html (see also the image page w:en:Image:Wikitest.html; by the way, this page was not uploaded because of templates or images, but because of added functionality using JavaScript, not allowed in wikitext).\n",
+        "The HTML contains the contents of the templates, so the page is not affected by a change or deletion of a template. It further contains URL-references to images; it is not affected by an image revision, but it is by a deletion.\n",
+        "To produce a wikitext version not depending on templates use \"subst:\", if necessary recursively.\n",
+        "See also Help:Downloading pages.\n",
+        "Special:Export",
+        "Special:Export produces an XML-file, without the MediaWiki user interface, with the wikitext of the current and optionally all old versions of one or more specified pages, with date, time, user name, and edit summary. How it is displayed, e.g. with or without XML tags, and with or without applying new lines, depends on the browser. Some browsers show \"+\" and \"-\" links to view or hide selected parts. Alternatively the XML-source can be viewed using the \"view source\" feature of the browser, or after saving the XML file locally, with a program of choice.\n",
+        "The feature also allows searching for a text in all versions of one or more specified pages. See also XML export.\n",
+        "Archiving",
+        "Archiving texts in separate pages is superior to using the page history as archive: texts in archive pages can be found by search engines. Page histories can only be searched after applying Special:Export. Also, archive pages can be organized and titled afterwards in a suitable way, while e.g. edit summaries can not be supplied afterwards. However, an index of old versions of a page, with links to them, could be prepared.\n",
+        "Watched pages",
+        "If one views the history of a watched page directly, without first viewing the page, the edit at the top (the most recent one) may be marked with update marker \"updated (since my last visit)\" (or the content of MediaWiki:Updatedmarker); this applies if the edit was made by someone else and you have not viewed the page (while logged in) since it was made. The positioning of the message, suggesting that it is a property of an edit rather than a property of the page, is somewhat misleading, because not all edits which have not been viewed yet are marked.\n",
+        "Web feed"
+    ],
+    "title": [
+        "Page history"
+    ],
+    "source": "https://www.wikidoc.org/index.php/Page_history",
+    "categories": [
+        "Help"
+    ],
+    "keywords": [],
+    "id": "Page-history__2013-09-02",
+    "last-modified": "2013-09-02",
+    "authors": [
+        "C. Michael Gibson, M.S., M.D."
+    ]
+}

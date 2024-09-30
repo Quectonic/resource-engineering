@@ -172,9 +172,10 @@ class WikidocspiderSpider(CrawlSpider):
             lxml_html_target_str = []
             for item in lxml_html_target:
                 if len(item.text.strip()) != 0:
-                    lxml_html_target_str.append(item)
+                    lxml_html_target_str.append(str(item))
                     
             if len(lxml_html_target_str) == 0:
+                self.logger.info(f'{response.url}: Content is an empty string after strip(), skipping...')
                 return
             
             """
@@ -210,11 +211,11 @@ class WikidocspiderSpider(CrawlSpider):
                 'last-modified': last_modified.strftime('%Y-%m-%d'),
                 'authors': authors,
             }
+            self.logger.info(f"Reaching the end of processing for {response.url}")
+            self.logger.info(f"\n\n\n\nExtracted Content from {response.url}: {json.dumps(item, indent=4)}\n\n\n\n")
             
-            self.logger.info(f"Extracted Content from {response.url}: {json.dumps(item, indent=4)}")
             
-            
-            return item
+            yield item
         except Exception as error:
             self.logger.error(f'Unknown Error Encountered, {error}')
             return {}

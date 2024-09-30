@@ -68,9 +68,9 @@ DOWNLOADER_MIDDLEWARES = {
 # Configure item pipelines
 # See https://docs.scrapy.org/en/latest/topics/item-pipeline.html
 ITEM_PIPELINES = {
-#    "mdkengineering.pipelines.CloudStoragePipeline": 300,
+   "mdkengineering.pipelines.CloudStoragePipeline": 300,
    ## Test Pipeline:
-   "mdkengineering.pipelines.JsonWriterPipeline": 400,
+   # "mdkengineering.pipelines.JsonWriterPipeline": 400,
 }
 
 OUTPUT_JSON_DIR = "output/json"
@@ -111,7 +111,7 @@ USER_AGENTS = [
     "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1)"
 ]
 
-GCS_BUCKET_NAME = ""
+GCS_BUCKET_NAME = "wikidoc_knowledge"
 
 # All are simply rules and guidelines on how to use wikiDoc
 ## Calculator topics are not yet implemented --> not text and involve logical calculation, should be separated from RAG
@@ -133,7 +133,7 @@ DENY_URL_PATTERNS_WIKIDOC = [
    r'index\.php\/Moving_pages', r'index\.php\/New_pages', r'index\.php\/NewPage', r'index\.php\/Ogg',
    r'index\.php\/Navigational_images', r'index\.php.*Special:', r'index\.php\/Columns', r'index\.php\/Citations', r'index\.php\/Categories',
    r'index\.php\/Editorial_Board', r'index\.php.*WikiDoc_Foundation', r'index\.php\/There_is_No_Industry_Support_for_This_Site', 
-   r'index\.php\/Policies_%26_Guidelines', r'index\.php\/User:.*', 
+   r'index\.php\/Policies_%26_Guidelines', r'index\.php\/User:.*', r'index\.php\/Page_.*', r'index\.php\/User_talk:.*', r'index\.php\/Talk:.*',
    
    ## Special Parameters
    r'index\.php.*oldid=',

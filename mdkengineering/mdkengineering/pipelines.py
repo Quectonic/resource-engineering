@@ -5,9 +5,10 @@
 
 
 # useful for handling different item types with a single interface
-from itemadapter import ItemAdapter
+from itemadapter import ItemAdapter # type: ignore
 
 from google.cloud import storage
+from google.cloud import logging
 import os
 import json
 
@@ -66,31 +67,16 @@ class CloudStoragePipeline:
     
     """
     
-    def __init__(self, bucket_name) -> None:
-        
-        """# 🍪 **Status: _Default_**
-        
-        **Description**
-        -----------
-            This is an initialization method that sets up the Google Cloud Storage client and bucket.
-            
-        **Parameters**
-        ----------
-        bucket_name : `str`
-            The name of the Google Cloud Storage bucket.
-        """
-        # Initialize GCS Bucket and client 
-        # Make sure client has right permission and use ADC or other credential methods suggested by Google Cloud
+    def open_spider(self, spider):
+        # Create a directory for storing the JSON files if it doesn't exist
+        bucket_name = spider.settings.get('GCS_BUCKET_NAME', '')
+        if bucket_name == '':
+            spider.logger.error("GCS_BUCKET_NAME not set in settings.py")
         self.bucket_name = bucket_name
         self.storage_client = storage.Client()
+        self.logging_client = logging.Client()
+        self.logger = self.logging_client.logger('mdkengineering')
         self.bucket = self.storage_client.bucket(self.bucket_name)
-        
-    @classmethod
-    def from_crawler(cls, crawler):
-        # Instantiate the pipeline with the bucket name from settings
-        return cls(
-            bucket_name=crawler.settings.get('GCS_BUCKET_NAME')
-        )
         
     def process_item(self, item, spider):
         
@@ -107,17 +93,12 @@ class CloudStoragePipeline:
         ## [ ] 6. keyword : []
         ## [ ] 7. authors: []
         
-        ## Extract text content from the JSON processed from the spider
-        content = item.get('text', '')
-        ## Extract url path ( excluding domain, just path ) from the JSON processed from the spider
-        name = item.get('url-path', '')
-        ## Extract title of the page from the JSON processed from the spider
-        title = item.get('title', '')
+        name = item.get('id', '')
         
     
-        if content and name:
+        if item and name:
             # Upload to GCS
-            self.upload_to_gcs(name=name, content=content, spider=spider)
+            self.upload_to_gcs(name=name, content=item, spider=spider)
         return item
     
     def upload_to_gcs(self, name, content, spider):
@@ -138,10 +119,21 @@ class CloudStoragePipeline:
         """
         
         # GCS Upload Code
-        filename = f"{spider.name}_{name}.txt"
+        filename = f"{spider.name}_{name}.json"
         try:
-            blob = self.bucket.blob(filename)
-            blob.upload_from_string(content)
-            spider.logger.info(f"Uploaded {filename} to GCS bucket {self.bucket_name}")
+            upload_content = json.dumps(content, indent=4)
+            blob = self.bucket.blob(f"data/{filename}")
+            blob.upload_from_string(upload_content, content_type='application/json')
+            self.logger.log_struct({
+                'file': filename,
+                'bucket': self.bucket_name,
+                'status': 'success'
+            }, severity='INFO')
+            spider.logger.info(f"CloudStoragePipeline: Uploaded {filename} to GCS bucket {self.bucket_name}")
         except Exception as e:
-            spider.logger.error(f"Upload Failed: {e}")
+            self.logger.log_struct({
+                'file': filename,
+                'bucket': self.bucket_name,
+                'status': 'failed'
+            }, severity='ERROR')
+            spider.logger.error(f"CloudStoragePipeline: Upload Failed: {e}")
